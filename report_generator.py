@@ -53,6 +53,7 @@ class ReportGenerator:
             f.write(self._generate_dns_findings())
             f.write(self._generate_subdomain_findings())
             f.write(self._generate_secret_findings())
+            f.write(self._generate_exploit_findings())
             
             # Risk Analysis
             f.write(self._generate_risk_analysis())
@@ -87,6 +88,7 @@ class ReportGenerator:
         total_ports = len(self.agent.findings['ports'])
         total_subdomains = len(self.agent.findings['subdomains'])
         total_secrets = len(self.agent.findings['secrets'])
+        total_exploits = len(self.agent.findings['exploits'])
         
         # Count high-risk findings
         high_risk_count = sum(1 for r in self.agent.findings.get('risks', []) 
@@ -96,7 +98,7 @@ class ReportGenerator:
         
         return f"""## Executive Summary
 
-This report presents findings from automated reconnaissance conducted against **{self.agent.target}**. The assessment utilized multiple OSINT techniques including port scanning, DNS enumeration, subdomain discovery, and public repository analysis.
+This report presents findings from automated reconnaissance conducted against **{self.agent.target}**. The assessment utilized multiple OSINT techniques including port scanning, DNS enumeration, subdomain discovery, public repository analysis, and exploit correlation.
 
 ### Key Findings Summary
 
@@ -105,6 +107,7 @@ This report presents findings from automated reconnaissance conducted against **
 | Open Ports | {total_ports} | - | - |
 | Subdomains | {total_subdomains} | - | - |
 | Exposed Secrets | {total_secrets} | {critical_count} | {high_risk_count} |
+| Known Exploits | {total_exploits} | - | - |
 
 ### Overall Risk Assessment
 
@@ -254,6 +257,65 @@ This report presents findings from automated reconnaissance conducted against **
         section += f"- **Tactic:** {self.mitre_mappings['secrets']['tactic']}\n"
         section += f"- **Technique:** {self.mitre_mappings['secrets']['technique']}\n"
         section += f"- **Description:** {self.mitre_mappings['secrets']['description']}\n\n"
+        
+        section += "---\n\n"
+        return section
+    
+    def _generate_exploit_findings(self):
+        """Generate exploit search findings"""
+        if not self.agent.findings['exploits']:
+            return "\n## Exploit-DB Search Results\n\nNo known exploits found for discovered services.\n\n---\n\n"
+        
+        section = "\n## Exploit-DB Search Results\n\n"
+        section += f"⚠️ **ATTENTION: {len(self.agent.findings['exploits'])} known exploits identified**\n\n"
+        
+        section += "### Discovered Exploits\n\n"
+        
+        # Group exploits by service
+        exploits_by_service = {}
+        for exploit in self.agent.findings['exploits']:
+            service_key = f"{exploit.get('service', 'Unknown')} {exploit.get('version', '')}".strip()
+            if service_key not in exploits_by_service:
+                exploits_by_service[service_key] = []
+            exploits_by_service[service_key].append(exploit)
+        
+        for service, exploits in exploits_by_service.items():
+            section += f"#### {service}\n\n"
+            section += f"**Port(s):** {', '.join(set(str(e.get('port', 'N/A')) for e in exploits))}\n\n"
+            
+            section += "| Exploit Title | ID/CVE | Type | URL |\n"
+            section += "|---------------|--------|------|-----|\n"
+            
+            for exploit in exploits[:5]:  # Limit to top 5 per service
+                title = exploit.get('exploit_title', 'Unknown')[:60]
+                exploit_id = exploit.get('exploit_id', 'N/A')
+                cve = exploit.get('cve_id', '')
+                id_display = f"{exploit_id}" + (f" / {cve}" if cve else "")
+                exploit_type = exploit.get('exploit_type', 'Unknown')
+                url = exploit.get('exploit_url', '')
+                url_display = f"[Link]({url})" if url else "N/A"
+                
+                section += f"| {title} | {id_display} | {exploit_type} | {url_display} |\n"
+            
+            if len(exploits) > 5:
+                section += f"\n*...and {len(exploits) - 5} more exploits for this service*\n"
+            
+            section += "\n"
+        
+        section += "### Exploitation Guidance\n\n"
+        section += "**IMPORTANT:** Before attempting exploitation:\n\n"
+        section += "1. Verify the exact version matches the exploit requirements\n"
+        section += "2. Test exploits in a controlled lab environment first\n"
+        section += "3. Ensure proper authorization is in place\n"
+        section += "4. Review exploit code for safety and intended behavior\n"
+        section += "5. Consider exploit reliability and stability ratings\n"
+        section += "6. Prepare rollback procedures in case of system impact\n\n"
+        
+        section += "### MITRE ATT&CK Mapping\n\n"
+        section += "- **Tactic:** TA0002 - Execution\n"
+        section += "- **Technique:** T1203 - Exploitation for Client Execution\n"
+        section += "- **Sub-Technique:** Various depending on exploit type\n"
+        section += "- **Description:** Adversaries may exploit software vulnerabilities in client applications to execute code\n\n"
         
         section += "---\n\n"
         return section

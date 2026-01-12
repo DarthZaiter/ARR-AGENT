@@ -31,6 +31,7 @@ class ARRAgent:
             'dns': {},
             'subdomains': [],
             'secrets': [],
+            'exploits': [],
             'risks': []
         }
         
@@ -144,12 +145,17 @@ class ARRAgent:
             scanner = GitHubSecretScanner(self)
             scanner.scan()
         
+        elif module_name == "exploits":
+            from modules.exploit_search import ExploitSearcher
+            searcher = ExploitSearcher(self)
+            searcher.search()
+        
         else:
             print(f"[-] Unknown module: {module_name}")
     
     def run_all_modules(self):
         """Run all reconnaissance modules in sequence"""
-        modules = ["dns", "subdomains", "portscan", "secrets"]
+        modules = ["dns", "subdomains", "portscan", "secrets", "exploits"]
         
         for module in modules:
             try:
@@ -205,7 +211,7 @@ def main():
     parser.add_argument('-o', '--output', default='./arr_output', 
                        help='Output directory (default: ./arr_output)')
     parser.add_argument('-m', '--module', 
-                       choices=['portscan', 'dns', 'subdomains', 'secrets', 'all'],
+                       choices=['portscan', 'dns', 'subdomains', 'secrets', 'exploits', 'all'],
                        default='all',
                        help='Specific module to run (default: all)')
     parser.add_argument('--no-risk-scoring', action='store_true',

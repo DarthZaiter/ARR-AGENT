@@ -1,6 +1,3 @@
-# ARR-AGENT
-Autonomous Reconnaissance &amp; Reporting Agent
-
 # ARR-Agent Setup Guide
 ## Autonomous Reconnaissance & Reporting Agent
 
@@ -12,10 +9,11 @@ ARR-Agent is a modular Python tool for automated OSINT collection, vulnerability
 
 ### Key Features
 
-✅ **Port Scanning** - nmap integration with service detection  
+✅ **Port Scanning** - nmap integration with service detection (FULL 1-65535 port range)  
 ✅ **DNS/WHOIS Enumeration** - Comprehensive DNS record collection  
 ✅ **Subdomain Discovery** - Certificate transparency, bruteforce, zone transfers  
 ✅ **GitHub Secret Scanning** - Public repository credential hunting  
+✅ **Exploit-DB Search** - Automatic exploit correlation with discovered services  
 ✅ **ML-Based Risk Scoring** - Intelligent finding prioritization  
 ✅ **Attack Path Analysis** - Correlates findings to identify exploitation chains  
 ✅ **Professional Reports** - Markdown output with MITRE ATT&CK mappings  
@@ -31,18 +29,23 @@ ARR-Agent is a modular Python tool for automated OSINT collection, vulnerability
 - nmap (for port scanning)
 - whois (for WHOIS lookups)
 - dig (for DNS zone transfers - optional)
+- searchsploit (for exploit searching - optional but recommended)
 
 ### System Setup
 
 **Ubuntu/Debian:**
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-pip nmap whois dnsutils
+sudo apt install -y python3 python3-pip nmap whois dnsutils exploitdb
+# exploitdb includes searchsploit for offline exploit searching
 ```
 
 **macOS:**
 ```bash
 brew install python3 nmap whois
+# For searchsploit on macOS:
+git clone https://github.com/offensive-security/exploitdb.git /opt/exploitdb
+ln -sf /opt/exploitdb/searchsploit /usr/local/bin/searchsploit
 ```
 
 **Windows:**
@@ -69,10 +72,11 @@ arr-agent/
 ├── arr_agent.py              # Main framework
 ├── modules/
 │   ├── __init__.py
-│   ├── port_scanner.py       # Port scanning module
+│   ├── port_scanner.py       # Port scanning module (1-65535 full range)
 │   ├── dns_enum.py           # DNS enumeration module
 │   ├── subdomain_discovery.py # Subdomain discovery module
 │   ├── github_secrets.py     # GitHub secret scanner
+│   ├── exploit_search.py     # Exploit-DB correlation module
 │   ├── risk_scorer.py        # ML risk scoring engine
 │   └── report_generator.py   # Report generation
 └── arr_output/               # Output directory (auto-created)
@@ -95,6 +99,7 @@ touch modules/__init__.py
 # modules/dns_enum.py = DNS Enumeration Module
 # modules/subdomain_discovery.py = Subdomain Discovery Module
 # modules/github_secrets.py = GitHub Secret Scanner Module
+# modules/exploit_search.py = Exploit-DB Search Module
 # modules/risk_scorer.py = ML Risk Scoring Module
 # modules/report_generator.py = Report Generator Module
 ```
@@ -134,6 +139,9 @@ python3 arr_agent.py example.com -m subdomains
 # GitHub secret scan only
 python3 arr_agent.py example.com -m secrets
 
+# Exploit search only (requires port scan data)
+python3 arr_agent.py example.com -m exploits
+
 # All modules (default)
 python3 arr_agent.py example.com -m all
 ```
@@ -166,17 +174,19 @@ ARR-Agent generates several outputs:
 ### 1. Database (`arr_data_[SESSION_ID].db`)
 
 SQLite database containing all findings:
-- `ports` - Open port discoveries
+- `ports` - Open port discoveries (all 65535 ports scanned)
 - `dns_records` - DNS enumeration results
 - `subdomains` - Discovered subdomains
 - `secrets` - Exposed credentials/secrets
+- `exploits` - Known exploits matching discovered services
 - `risk_scores` - ML-calculated risk scores
 
 ### 2. Report (`ARR_Report_[SESSION_ID].md`)
 
 Professional Markdown report including:
-- Executive summary
+- Executive summary with exploit count
 - Detailed findings by module
+- **Exploit correlation with actionable links**
 - Risk analysis with scoring
 - Identified attack paths
 - MITRE ATT&CK mappings
@@ -238,10 +248,11 @@ python3 arr_agent.py acmecorp.com
 
 **Output:**
 - Discovers 15 subdomains
-- Finds 8 open ports across main domain and subdomains
+- Finds 8 open ports across ALL 65535 ports (main domain and subdomains)
 - Identifies 3 exposed secrets in public GitHub repos
+- **Correlates 12 known exploits from Exploit-DB/NVD**
 - Generates risk scores for all findings
-- Creates comprehensive Markdown report
+- Creates comprehensive Markdown report with exploit details
 
 ### Example 2: Quick Port Scan
 
@@ -254,7 +265,20 @@ python3 arr_agent.py 192.168.1.100 -m portscan --no-risk-scoring --no-report
 - Results saved to database
 - No ML scoring or report (for speed)
 
-### Example 3: Targeted Secret Hunting
+### Example 3: Port Scan + Exploit Search
+
+```bash
+python3 arr_agent.py targetcompany.com -m portscan
+python3 arr_agent.py targetcompany.com -m exploits
+```
+
+**Output:**
+- Full 65535 port scan with service detection
+- Automatic correlation with Exploit-DB
+- CVE lookup for discovered versions
+- Direct links to exploit code
+
+### Example 4: Targeted Secret Hunting
 
 ```bash
 python3 arr_agent.py targetcompany.com -m secrets
@@ -317,6 +341,19 @@ Set a GitHub personal access token:
 ```bash
 export GITHUB_TOKEN="your_token_here"
 ```
+
+### "searchsploit not found"
+
+```bash
+# Install exploitdb (includes searchsploit)
+sudo apt install exploitdb  # Ubuntu/Debian
+
+# Or clone manually
+git clone https://github.com/offensive-security/exploitdb.git /opt/exploitdb
+ln -sf /opt/exploitdb/searchsploit /usr/local/bin/searchsploit
+```
+
+Note: ARR-Agent will still work without searchsploit, using online CVE databases instead.
 
 ### Permission Denied on Port Scan
 
@@ -398,12 +435,14 @@ Future enhancements planned:
 - [ ] Additional ML models for anomaly detection
 - [ ] PDF report generation
 - [ ] Web UI dashboard
+- [ ] Metasploit framework integration
 - [ ] Integration with vulnerability databases (CVE)
 - [ ] Passive DNS analysis
 - [ ] SSL/TLS certificate analysis
 - [ ] Cloud asset discovery (AWS, Azure, GCP)
 - [ ] Dark web monitoring
 - [ ] Continuous monitoring mode
+- [ ] Automated exploit validation/testing
 
 ---
 
